@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İletişim — TheEyeOfGod</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#030308;
+    --panel:rgba(14,14,26,0.5);
+    --panel-border:rgba(150,140,220,0.16);
+    --blue:#5dc9ff;
+    --violet:#9b6bff;
+    --text:#eef0fa;
+    --text-muted:#8b93ad;
+    --text-dim:#545a72;
+    --success:#3be8b0;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ min-height:100%; background:var(--bg); color:var(--text); font-family:'Inter', sans-serif; }
+  body{
+    position:relative;
+    display:flex; flex-direction:column;
+    background:
+      radial-gradient(ellipse 900px 600px at 50% -10%, rgba(93,201,255,0.07), transparent 60%),
+      radial-gradient(ellipse 900px 600px at 100% 110%, rgba(155,107,255,0.06), transparent 60%),
+      var(--bg);
+  }
+
+  header.nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px clamp(20px, 5vw, 56px);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+  .brand-mark{ width:20px; height:20px; flex-shrink:0; opacity:0.9; }
+  .brand span{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--text-dim);
+  }
+  .back-link{
+    text-decoration:none; color:var(--text-dim); font-family:'JetBrains Mono', monospace;
+    font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+    display:flex; align-items:center; gap:6px; transition:color 0.2s ease;
+  }
+  .back-link:hover{ color:var(--text-muted); }
+  .back-link svg{ width:13px; height:13px; }
+
+  main{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:40px 20px 100px;
+  }
+
+  .kicker{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.3em;
+    text-transform:uppercase; color:var(--text-dim); margin-bottom:16px;
+    display:flex; align-items:center; gap:9px;
+  }
+  .kicker .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--success);
+    box-shadow:0 0 8px var(--success);
+  }
+
+  h1{
+    font-family:'Chakra Petch', sans-serif; font-weight:700;
+    font-size:clamp(28px, 5vw, 42px); letter-spacing:0.01em;
+    background:linear-gradient(120deg, #fff, var(--blue) 60%, var(--violet));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    margin-bottom:14px;
+  }
+
+  p.lead{
+    max-width:480px; color:var(--text-muted); font-size:14.5px; line-height:1.7;
+    margin-bottom:40px;
+  }
+
+  .contact-card{
+    display:flex; align-items:center; gap:16px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:20px 28px;
+    text-decoration:none;
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    box-shadow:0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition:transform 0.2s ease, box-shadow 0.3s ease, border-color 0.2s ease;
+    position:relative;
+  }
+  .contact-card::before{
+    content:""; position:absolute; inset:-1px; border-radius:17px; padding:1px;
+    background:linear-gradient(135deg, rgba(93,201,255,0.35), rgba(155,107,255,0.08) 45%, rgba(93,201,255,0.2));
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    pointer-events:none; opacity:0.6;
+  }
+  .contact-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 0 30px rgba(93,201,255,0.22), 0 0 50px rgba(155,107,255,0.14);
+  }
+
+  .ig-icon{
+    width:42px; height:42px; flex-shrink:0;
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--blue), var(--violet));
+  }
+  .ig-icon svg{ width:22px; height:22px; color:#04070d; }
+
+  .contact-text{ text-align:left; }
+  .contact-label{
+    font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-dim); margin-bottom:3px;
+  }
+  .contact-handle{
+    font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:17px; color:var(--text);
+  }
+
+  footer{
+    display:flex; align-items:center; justify-content:center;
+    padding:22px; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a href="index.html" class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="6" fill="url(#g2)"/>
+      <ellipse cx="16" cy="16" rx="14" ry="5.4" stroke="url(#g2)" stroke-width="1.2" fill="none" opacity="0.7"/>
+      <defs>
+        <linearGradient id="g2" x1="2" y1="6" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#5dc9ff"/>
+          <stop offset="1" stop-color="#9b6bff"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span>TheEyeOfGod</span>
+  </a>
+  <a href="index.html" class="back-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Ana sayfa
+  </a>
+</header>
+
+<main>
+  <div class="kicker"><span class="dot"></span> İLETİŞİM</div>
+  <h1>Bize ulaşın</h1>
+  <p class="lead">Sorularınız, geri bildirimleriniz veya iş birlikleri için aşağıdaki kanaldan iletişime geçebilirsiniz.</p>
+
+  <a class="contact-card" href="https://instagram.com/emretmh" target="_blank" rel="noopener noreferrer">
+    <div class="ig-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+    </div>
+    <div class="contact-text">
+      <div class="contact-label">Instagram</div>
+      <div class="contact-handle">@emretmh</div>
+    </div>
+  </a>
+</main>
+
+<footer>© 2026 THEEYEOFGOD</footer>
+
+</body>
+</html>
