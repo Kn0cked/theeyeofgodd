@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fotoğraf Metadata & Konum Okuyucu</title>
+
+  <!-- EXIF okuma kütüphanesi. İnternet bağlantısı gerekir. -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #101827;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 850px;
+      background: #172033;
+      border: 1px solid #2d3a55;
+      border-radius: 22px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 32px;
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    .muted {
+      color: #b8c4d8;
+    }
+
+    .upload-box {
+      display: block;
+      margin: 24px 0;
+      border: 2px dashed #64748b;
+      border-radius: 18px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .upload-box:hover {
+      border-color: #93c5fd;
+      background: rgba(147, 197, 253, 0.08);
+    }
+
+    .upload-box input {
+      display: none;
+    }
+
+    .upload-box span {
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    #preview {
+      max-width: 100%;
+      max-height: 350px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      margin: 20px 0;
+    }
+
+    .status {
+      margin: 12px 0;
+      color: #facc15;
+      font-weight: bold;
+    }
+
+    .box {
+      margin-top: 20px;
+      padding: 20px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 16px;
+    }
+
+    pre {
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #dbeafe;
+    }
+
+    a {
+      display: inline-block;
+      margin-top: 8px;
+      color: #93c5fd;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>Fotoğraf Metadata & Konum Okuyucu</h1>
+
+    <p class="muted">
+      Fotoğraf seç. Varsa EXIF metadata ve GPS konumu burada görünür.
+      Fotoğraf sunucuya yüklenmez, işlem tarayıcı içinde yapılır.
+    </p>
+
+    <label class="upload-box">
+      <input id="fileInput" type="file" accept="image/*" />
+      <span>Fotoğraf seç</span>
+    </label>
+
+    <img id="preview" class="hidden" alt="Seçilen fotoğraf önizlemesi" />
+
+    <div id="status" class="status"></div>
+
+    <section id="locationBox" class="box hidden">
+      <h2>Konum Bilgisi</h2>
+      <p><strong>Enlem:</strong> <span id="lat"></span></p>
+      <p><strong>Boylam:</strong> <span id="lon"></span></p>
+      <a id="mapsLink" href="#" target="_blank" rel="noopener">Google Maps’te Aç</a>
+    </section>
+
+    <section id="metadataBox" class="box hidden">
+      <h2>Tüm Metadata</h2>
+      <pre id="metadataOutput"></pre>
+    </section>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const preview = document.getElementById("preview");
+    const statusText = document.getElementById("status");
+
+    const locationBox = document.getElementById("locationBox");
+    const metadataBox = document.getElementById("metadataBox");
+    const metadataOutput = document.getElementById("metadataOutput");
+
+    const latEl = document.getElementById("lat");
+    const lonEl = document.getElementById("lon");
+    const mapsLink = document.getElementById("mapsLink");
+
+    fileInput.addEventListener("change", async function (event) {
+      const file = event.target.files[0];
+      resetUI();
+
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        statusText.textContent = "Lütfen geçerli bir fotoğraf seç.";
+        return;
+      }
+
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove("hidden");
+
+      try {
+        statusText.textContent = "Metadata okunuyor...";
+
+        const metadata = await exifr.parse(file, {
+          gps: true,
+          xmp: true,
+          iptc: true,
+          jfif: true,
+          ihdr: true
+        });
+
+        if (!metadata) {
+          statusText.textContent = "Bu fotoğrafta okunabilir metadata bulunamadı.";
+          return;
+        }
+
+        metadataBox.classList.remove("hidden");
+        metadataOutput.textContent = JSON.stringify(metadata, null, 2);
+
+        const latitude = metadata.latitude;
+        const longitude = metadata.longitude;
+
+        if (typeof latitude === "number" && typeof longitude === "number") {
+          locationBox.classList.remove("hidden");
+
+          latEl.textContent = latitude;
+          lonEl.textContent = longitude;
+
+          mapsLink.href = "https://www.google.com/maps?q=" + latitude + "," + longitude;
+
+          statusText.textContent = "Metadata ve konum bilgisi bulundu.";
+        } else {
+          statusText.textContent = "Metadata bulundu fakat GPS konumu yok.";
+        }
+      } catch (error) {
+        console.error(error);
+        statusText.textContent = "Metadata okunurken hata oluştu.";
+      }
+    });
+
+    function resetUI() {
+      statusText.textContent = "";
+      preview.classList.add("hidden");
+      locationBox.classList.add("hidden");
+      metadataBox.classList.add("hidden");
+      metadataOutput.textContent = "";
+      latEl.textContent = "";
+      lonEl.textContent = "";
+      mapsLink.href = "#";
+    }
+  </script>
+</body>
+</html>
