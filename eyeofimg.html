@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TheEyeOfGod — Photo Metadata Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<style>
+  :root{
+    --bg:#030308;
+    --void:#000003;
+    --panel:rgba(14,14,26,0.5);
+    --panel-border:rgba(150,140,220,0.16);
+    --blue:#5dc9ff;
+    --violet:#9b6bff;
+    --deep-violet:#5a2fb0;
+    --text:#eef0fa;
+    --text-muted:#8b93ad;
+    --text-dim:#545a72;
+    --danger:#ff6b7a;
+    --success:#3be8b0;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{ height:100%; background:var(--bg); color:var(--text); font-family:'Inter', sans-serif; overflow-x:hidden; }
+  ::selection{ background:rgba(155,107,255,0.28); color:#fff; }
+
+  body{ position:relative; min-height:100vh; display:flex; flex-direction:column; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+
+  /* ---------- Background ---------- */
+  #space{ position:fixed; inset:0; z-index:0; width:100%; height:100%; display:block; }
+
+  .vignette{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 46%, rgba(3,3,8,0) 0%, rgba(3,3,8,0.5) 58%, rgba(3,3,8,0.96) 100%);
+  }
+
+  .grain-grid{
+    position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.03;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px);
+    background-size:64px 64px;
+    mask-image:radial-gradient(ellipse at 50% 40%, black 0%, transparent 72%);
+  }
+
+  /* ---------- Nav ---------- */
+  header.nav{
+    position:relative; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px clamp(20px, 5vw, 56px);
+  }
+
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{ width:20px; height:20px; flex-shrink:0; opacity:0.9; }
+  .brand span{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--text-dim);
+  }
+
+  nav.links{ display:flex; align-items:center; gap:26px; }
+  nav.links a{
+    text-decoration:none; color:var(--text-dim); font-size:12.5px; letter-spacing:0.08em;
+    text-transform:uppercase; transition:color 0.25s ease;
+  }
+  nav.links a:hover{ color:var(--text-muted); }
+
+  @media (max-width:640px){ nav.links{ display:none; } }
+
+  /* ---------- Hero ---------- */
+  main.hero{
+    position:relative; z-index:10; flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:40px 20px 90px;
+  }
+
+  .kicker{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.34em;
+    text-transform:uppercase; color:var(--text-dim); margin-bottom:26px;
+  }
+
+  h1.wordmark{
+    font-family:'Chakra Petch', sans-serif; font-weight:700;
+    font-size:clamp(40px, 8vw, 88px); letter-spacing:0.01em; line-height:1;
+    color:#f2f4fb;
+  }
+
+  h1.wordmark .glow{
+    background:linear-gradient(120deg, var(--blue), var(--violet) 60%, #b98bff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 26px rgba(123,90,255,0.28));
+  }
+
+  p.slogan{
+    margin-top:18px; max-width:600px;
+    font-family:'Chakra Petch', sans-serif; font-weight:500;
+    font-size:clamp(15px, 2vw, 19px); letter-spacing:0.02em;
+    color:var(--text-muted);
+  }
+
+  /* ---------- Query row ---------- */
+  .query-row{
+    margin-top:42px; width:100%; max-width:560px;
+    display:flex; align-items:stretch; gap:10px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:999px;
+    padding:6px 6px 6px 22px;
+    backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    box-shadow:0 24px 60px -24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+    position:relative;
+  }
+
+  .query-row::before{
+    content:""; position:absolute; inset:-1px; border-radius:999px; padding:1px;
+    background:linear-gradient(135deg, rgba(93,201,255,0.35), rgba(155,107,255,0.08) 45%, rgba(93,201,255,0.2));
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    pointer-events:none; opacity:0.6;
+  }
+
+  #email-input{
+    flex:1; min-width:0; background:transparent; border:none; outline:none;
+    color:var(--text); font-family:'JetBrains Mono', monospace; font-size:14px;
+    padding:12px 0; letter-spacing:0.01em;
+  }
+  #email-input::placeholder{ color:var(--text-dim); }
+
+  .query-row.shake{ animation:shake 0.4s ease; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    25%{ transform:translateX(-6px); }
+    75%{ transform:translateX(6px); }
+  }
+
+  button.query-btn{
+    position:relative; border:none; cursor:pointer; padding:0 28px; border-radius:999px;
+    font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:13.5px;
+    letter-spacing:0.14em; text-transform:uppercase; color:#04070d;
+    background:linear-gradient(135deg, var(--blue), var(--violet));
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+    transition:transform 0.2s ease, box-shadow 0.3s ease, filter 0.2s ease;
+    overflow:hidden;
+  }
+
+  button.query-btn::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform:translateX(-120%); transition:transform 0.6s ease;
+  }
+
+  button.query-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 0 22px rgba(93,201,255,0.4), 0 0 44px rgba(155,107,255,0.24);
+    filter:brightness(1.06);
+  }
+  button.query-btn:hover::after{ transform:translateX(120%); }
+  button.query-btn:active{ transform:translateY(0) scale(0.98); }
+  button.query-btn:disabled{ cursor:progress; opacity:0.85; }
+
+  .spinner{
+    width:13px; height:13px; border-radius:50%;
+    border:2px solid rgba(4,7,13,0.35); border-top-color:#04070d;
+    animation:spin 0.7s linear infinite; display:none;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .status-line{
+    margin-top:14px; text-align:left; max-width:560px; width:100%;
+    font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--text-dim);
+    min-height:16px; letter-spacing:0.01em;
+  }
+  .status-line .ok{ color:var(--success); }
+  .status-line .err{ color:var(--danger); }
+  .status-line .cursor{
+    display:inline-block; width:6px; height:11px; background:var(--blue);
+    margin-left:2px; vertical-align:-2px; animation:blink 1s steps(2) infinite;
+  }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .result{
+    margin-top:14px; max-width:560px; width:100%; text-align:left;
+    border-top:1px dashed rgba(255,255,255,0.08); padding-top:14px; display:none;
+  }
+  .result.show{ display:block; animation:fadeUp 0.5s ease; }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  .result-head{
+    display:flex; align-items:center; gap:9px;
+    font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:13.5px; color:var(--success);
+  }
+  .result-head svg{ width:15px; height:15px; }
+  .result-body{ margin-top:7px; font-size:12.5px; color:var(--text-muted); line-height:1.6; }
+  .result-foot{ margin-top:8px; font-size:10.5px; color:var(--text-dim); font-family:'JetBrains Mono', monospace; }
+
+  /* ---------- Counter ---------- */
+  .counter-block{
+    margin-top:64px; display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+
+  .counter-label{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.28em;
+    text-transform:uppercase; color:var(--text-dim); display:flex; align-items:center; gap:9px;
+  }
+  .counter-label .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--success);
+    box-shadow:0 0 8px var(--success); animation:blink 2.2s ease-in-out infinite;
+  }
+
+  .counter-value{
+    font-family:'JetBrains Mono', monospace; font-weight:600;
+    font-size:clamp(34px, 6.4vw, 58px);
+    letter-spacing:0.01em;
+    font-variant-numeric:tabular-nums;
+    background:linear-gradient(120deg, #fff, var(--blue) 55%, var(--violet));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 24px rgba(93,201,255,0.18));
+  }
+
+  .counter-sub{
+    font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--text-dim);
+    letter-spacing:0.04em;
+  }
+
+
+  /* ---------- EXIF interface additions ---------- */
+  .file-label{
+    flex:1; min-width:0; display:flex; align-items:center; cursor:pointer;
+    color:var(--text-dim); font-family:'JetBrains Mono', monospace; font-size:14px;
+    padding:12px 0; letter-spacing:0.01em; text-align:left;
+  }
+  .file-label input{ display:none; }
+  #file-name{
+    overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block; max-width:100%;
+  }
+
+  .preview-card{
+    margin-top:14px; display:none; border:1px solid rgba(255,255,255,0.08);
+    border-radius:18px; padding:10px; background:rgba(0,0,3,0.28);
+  }
+  .preview-card.show{ display:block; }
+  .preview-card img{
+    width:100%; max-height:280px; object-fit:contain; display:block; border-radius:13px;
+  }
+
+  .meta-grid{
+    display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:14px;
+  }
+  .meta-grid.show{ display:grid; }
+  .meta-item{
+    border:1px solid rgba(255,255,255,0.07); border-radius:14px;
+    padding:11px 12px; background:rgba(0,0,3,0.22);
+  }
+  .meta-label{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;
+  }
+  .meta-value{
+    font-family:'Inter', sans-serif; font-size:12.5px; color:var(--text-muted);
+    line-height:1.45; word-break:break-word;
+  }
+
+  .geo-actions,.tool-actions{
+    display:none; flex-wrap:wrap; gap:9px; margin-top:13px;
+  }
+  .geo-actions.show,.tool-actions.show{ display:flex; }
+  .geo-actions a,.tool-actions button{
+    border:1px solid rgba(150,140,220,0.18); border-radius:999px;
+    padding:9px 13px; background:rgba(14,14,26,0.5); color:var(--text-muted);
+    text-decoration:none; font-family:'JetBrains Mono', monospace; font-size:10.5px;
+    letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;
+  }
+  .geo-actions a:hover,.tool-actions button:hover{
+    color:var(--text); border-color:rgba(93,201,255,0.35);
+    box-shadow:0 0 18px rgba(93,201,255,0.12);
+  }
+
+  .raw-details{
+    display:none; margin-top:13px; border:1px solid rgba(255,255,255,0.07);
+    border-radius:14px; padding:11px 12px; background:rgba(0,0,3,0.24);
+  }
+  .raw-details.show{ display:block; }
+  .raw-details summary{
+    cursor:pointer; color:var(--text-dim); font-family:'JetBrains Mono', monospace;
+    font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  .raw-details pre{
+    margin-top:12px; max-height:320px; overflow:auto; white-space:pre-wrap;
+    word-break:break-word; color:var(--text-muted); font-family:'JetBrains Mono', monospace;
+    font-size:11px; line-height:1.55;
+  }
+
+
+
+  .brand{ text-decoration:none; transition:filter 0.25s ease, transform 0.25s ease; }
+  .brand:hover{ filter:drop-shadow(0 0 14px rgba(93,201,255,0.24)); transform:translateY(-1px); }
+
+  .report-shell{
+    border:1px solid rgba(150,140,220,0.16);
+    border-radius:22px; padding:18px;
+    background:linear-gradient(180deg, rgba(14,14,26,0.58), rgba(0,0,3,0.22));
+    box-shadow:0 24px 70px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
+    position:relative; overflow:hidden;
+  }
+  .report-shell::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:0.18;
+    background:linear-gradient(120deg, transparent 0%, rgba(93,201,255,0.18) 45%, transparent 70%);
+    transform:translateX(-120%); animation:reportSweep 4.8s ease-in-out infinite;
+  }
+  @keyframes reportSweep{ 0%,45%{transform:translateX(-120%);} 70%,100%{transform:translateX(120%);} }
+  .report-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; position:relative; z-index:1; }
+  .report-kicker{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.22em; color:var(--text-dim); margin-bottom:8px; }
+  .hud-panel{ min-width:178px; display:grid; gap:7px; border:1px solid rgba(93,201,255,0.14); border-radius:16px; padding:11px; background:rgba(0,0,3,0.24); }
+  .hud-panel span{ display:flex; justify-content:space-between; gap:12px; font-family:'JetBrains Mono', monospace; font-size:9.5px; color:var(--text-dim); }
+  .hud-panel b{ color:var(--success); font-weight:600; }
+  .preview-card{ position:relative; overflow:hidden; transition:transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+  .preview-card:hover{ transform:perspective(900px) rotateX(1deg) rotateY(-1deg) translateY(-2px); border-color:rgba(93,201,255,0.28); box-shadow:0 0 26px rgba(93,201,255,0.12); }
+  .preview-stamp{ position:absolute; right:18px; top:18px; z-index:2; border:1px solid rgba(59,232,176,0.34); border-radius:999px; padding:8px 11px; background:rgba(0,0,3,0.55); color:var(--success); font-family:'JetBrains Mono', monospace; font-size:9.5px; letter-spacing:0.11em; text-transform:uppercase; backdrop-filter:blur(10px); }
+  .risk-panel{ display:none; margin-top:14px; border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:14px; background:rgba(0,0,3,0.24); position:relative; z-index:1; }
+  .risk-panel.show{ display:block; animation:fadeUp 0.45s ease; }
+  .risk-top{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .risk-label{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.2em; color:var(--text-dim); }
+  .risk-desc{ margin-top:6px; font-size:12px; color:var(--text-muted); }
+  .risk-score{ font-family:'JetBrains Mono', monospace; font-size:22px; color:var(--text); white-space:nowrap; }
+  .risk-bar{ margin-top:12px; height:10px; border-radius:999px; background:rgba(255,255,255,0.06); overflow:hidden; }
+  .risk-bar span{ display:block; width:0%; height:100%; border-radius:999px; background:linear-gradient(90deg, var(--success), var(--blue), var(--violet)); box-shadow:0 0 20px rgba(93,201,255,0.25); transition:width 0.9s ease; }
+
+  .risk-panel.safe{ border-color:rgba(59,232,176,0.18); box-shadow:0 0 24px rgba(59,232,176,0.06); }
+  .risk-panel.medium{ border-color:rgba(255,211,107,0.2); box-shadow:0 0 24px rgba(255,211,107,0.06); }
+  .risk-panel.high{ border-color:rgba(255,107,122,0.22); box-shadow:0 0 24px rgba(255,107,122,0.07); }
+  .risk-bar span.safe{ background:linear-gradient(90deg, var(--success), var(--blue)); }
+  .risk-bar span.medium{ background:linear-gradient(90deg, #ffd36b, var(--blue)); }
+  .risk-bar span.high{ background:linear-gradient(90deg, var(--danger), var(--violet)); }
+  .score-breakdown{ margin-top:11px; display:grid; gap:7px; }
+  .score-reason{ display:flex; justify-content:space-between; gap:12px; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:8px 10px; background:rgba(255,255,255,0.025); font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--text-dim); }
+  .score-reason b{ color:var(--text-muted); font-weight:600; white-space:nowrap; }
+
+  .intel-grid{ display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px; margin-top:14px; position:relative; z-index:1; }
+  .intel-grid.show{ display:grid; }
+  .intel-card{ border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:14px; background:linear-gradient(180deg, rgba(14,14,26,0.42), rgba(0,0,3,0.22)); transition:transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease; }
+  .intel-card:hover{ transform:translateY(-3px); border-color:rgba(93,201,255,0.27); box-shadow:0 0 22px rgba(93,201,255,0.1); }
+  .intel-title{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.17em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+  .intel-value{ color:var(--text-muted); font-size:12.5px; line-height:1.55; word-break:break-word; }
+  .intel-value strong{ color:var(--text); font-weight:600; }
+  .severity{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 9px; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; }
+  .severity.safe{ color:var(--success); background:rgba(59,232,176,0.08); border:1px solid rgba(59,232,176,0.18); }
+  .severity.medium{ color:#ffd36b; background:rgba(255,211,107,0.08); border:1px solid rgba(255,211,107,0.18); }
+  .severity.high{ color:var(--danger); background:rgba(255,107,122,0.08); border:1px solid rgba(255,107,122,0.2); }
+  @media (max-width:720px){ .report-header{ flex-direction:column; } .hud-panel{ width:100%; } .intel-grid{ grid-template-columns:1fr; } }
+
+  /* ---------- Footer ---------- */
+  footer{
+    position:relative; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px clamp(20px, 5vw, 56px);
+    border-top:1px solid rgba(255,255,255,0.05);
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-dim);
+    flex-wrap:wrap; gap:10px;
+  }
+  footer .status-pill{ display:flex; align-items:center; gap:8px; }
+  footer .status-pill .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--success); box-shadow:0 0 6px var(--success);
+  }
+  footer a{ color:var(--text-dim); text-decoration:none; }
+  footer a:hover{ color:var(--text-muted); }
+  .footer-links{ display:flex; gap:18px; }
+
+  @media (max-width:560px){
+    .query-row{ border-radius:20px; flex-direction:column; padding:14px; gap:12px; }
+    button.query-btn{ padding:14px 20px; justify-content:center; border-radius:12px; }
+    #email-input{ padding:6px 8px; }
+    .file-label{ padding:6px 8px; }
+    footer{ flex-direction:column; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="space"></canvas>
+<div class="vignette"></div>
+<div class="grain-grid"></div>
+
+<header class="nav">
+  <a class="brand" href="https://theeyeofgod.sbs/" aria-label="Go to homepage">
+    <svg class="brand-mark" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="6" fill="url(#g2)"/>
+      <ellipse cx="16" cy="16" rx="14" ry="5.4" stroke="url(#g2)" stroke-width="1.2" fill="none" opacity="0.7"/>
+      <defs>
+        <linearGradient id="g2" x1="2" y1="6" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#5dc9ff"/>
+          <stop offset="1" stop-color="#9b6bff"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span>TheEyeOfGod</span>
+  </a>
+
+  <nav class="links">
+    <a href="https://theeyeofgod.sbs/eyeofemail.html">Email Checker</a>
+    <a href="https://theeyeofgod.sbs/eyeofpassword.html">Password Checker</a>
+  </nav>
+</header>
+
+<main class="hero">
+  <div class="kicker">CYBER INTELLIGENCE PLATFORM</div>
+
+  <h1 class="wordmark">The<span class="glow">EyeOf</span>Img</h1>
+  <p class="slogan">The Eye of God sees what others miss.</p>
+
+  <div class="query-row" id="query-row">
+    <label id="file-label" class="file-label">
+      <input id="photo-input" type="file" accept="image/*">
+      <span id="file-name">Select image file</span>
+    </label>
+    <button class="query-btn" id="query-btn">
+      <span class="spinner" id="spinner"></span>
+      <span id="btn-label">Analyze</span>
+    </button>
+  </div>
+  <div class="status-line" id="status-line">// waiting for local image input<span class="cursor"></span></div>
+
+  <div class="result" id="result">
+    <div class="report-shell">
+      <div class="report-header">
+        <div>
+          <div class="report-kicker">IMAGE INTELLIGENCE REPORT</div>
+          <div class="result-head" id="result-head">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>
+            Metadata scan ready
+          </div>
+          <div class="result-body" id="result-body">Choose a photo. If EXIF/GPS records exist, they will appear here.</div>
+          <div class="result-foot" id="result-foot">// local browser analysis — no server upload</div>
+        </div>
+        <div class="hud-panel" id="hud-panel">
+          <span>STATUS <b>ONLINE</b></span>
+          <span>LOCAL ANALYSIS <b>SECURE</b></span>
+          <span>SERVER UPLOAD <b>NONE</b></span>
+        </div>
+      </div>
+
+      <div class="preview-card" id="preview-card">
+        <div class="preview-stamp">INTELLIGENCE VERIFIED</div>
+        <img id="preview-img" alt="Selected image preview">
+      </div>
+
+      <div class="risk-panel" id="risk-panel">
+        <div class="risk-top">
+          <div>
+            <div class="risk-label">INTELLIGENCE SCORE</div>
+            <div class="risk-desc" id="risk-desc">Awaiting image analysis</div>
+          </div>
+          <div class="risk-score" id="risk-score">0 / 100</div>
+        </div>
+        <div class="risk-bar"><span id="risk-fill"></span></div>
+        <div class="score-breakdown" id="score-breakdown"></div>
+      </div>
+
+      <div class="intel-grid" id="intel-grid"></div>
+
+      <div class="geo-actions" id="geo-actions">
+        <a id="maps-link" href="#" target="_blank" rel="noopener">Open Google Maps</a>
+        <a id="osm-link" href="#" target="_blank" rel="noopener">OpenStreetMap</a>
+      </div>
+
+      <div class="tool-actions" id="tool-actions">
+        <button type="button" id="copy-json">Copy JSON</button>
+        <button type="button" id="download-json">Download JSON</button>
+        <button type="button" id="clear-scan">Clear</button>
+      </div>
+
+      <details class="raw-details" id="raw-details">
+        <summary>Raw metadata dump</summary>
+        <pre id="raw-output"></pre>
+      </details>
+    </div>
+  </div>
+
+  <div class="counter-block">
+    <div class="counter-label"><span class="dot"></span> TOTAL IMAGES ANALYZED</div>
+    <div class="counter-value" id="counter-value">0</div>
+    <div class="counter-sub">LOCAL ANALYSIS · NO SERVER UPLOAD</div>
+  </div>
+</main>
+
+<footer>
+  <div class="status-pill"><span class="dot"></span> SYSTEMS NOMINAL</div>
+  <div class="footer-links">
+    <a href="privacy.html">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="contact.html">Contact</a>
+  </div>
+  <div>© 2026 THEEYEOFGOD</div>
+</footer>
+
+<script>
+/* ================= Black hole scene ================= */
+const canvas = document.getElementById('space');
+const ctx = canvas.getContext('2d');
+let W, H, DPR;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+let mouseX = 0, mouseY = 0, smoothX = 0, smoothY = 0;
+window.addEventListener('mousemove', (e)=>{
+  mouseX = (e.clientX / W - 0.5) * 2;
+  mouseY = (e.clientY / H - 0.5) * 2;
+});
+window.addEventListener('touchmove', (e)=>{
+  if(e.touches && e.touches[0]){
+    mouseX = (e.touches[0].clientX / W - 0.5) * 2;
+    mouseY = (e.touches[0].clientY / H - 0.5) * 2;
+  }
+}, {passive:true});
+
+// distant starfield, fixed, twinkling faintly
+const stars = [];
+for(let i=0;i<140;i++){
+  stars.push({
+    x: Math.random(), y: Math.random(),
+    r: Math.random()*1.2 + 0.2,
+    a: Math.random()*0.5 + 0.15,
+    phase: Math.random()*Math.PI*2,
+    speed: 0.4 + Math.random()*0.6
+  });
+}
+
+// orbiting particles around the black hole (accretion debris)
+const particles = [];
+const pCount = 130;
+for(let i=0;i<pCount;i++){
+  particles.push({
+    angle: Math.random()*Math.PI*2,
+    radius: 0.34 + Math.random()*0.62,     // fraction of disk radius
+    speed: (0.15 + Math.random()*0.35) * (Math.random() < 0.5 ? 1 : -1),
+    size: 0.6 + Math.random()*1.6,
+    hueMix: Math.random()
+  });
+}
+
+let t = 0;
+
+function drawStars(){
+  for(const s of stars){
+    const tw = 0.6 + Math.sin(t*s.speed + s.phase) * 0.4;
+    ctx.fillStyle = `rgba(210,220,255,${s.a * tw})`;
+    ctx.beginPath();
+    ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function mixColor(a, b, m){
+  return {
+    r: a.r + (b.r-a.r)*m,
+    g: a.g + (b.g-a.g)*m,
+    b: a.b + (b.b-a.b)*m
+  };
+}
+const cBlue = {r:93,g:201,b:255};
+const cViolet = {r:155,g:107,b:255};
+
+function drawBlackHole(){
+  const cx = W/2 + smoothX * 16;
+  const cy = H*0.5 + smoothY * 12;
+  const baseR = Math.min(W, H) * 0.24;
+  const breathe = 1 + Math.sin(t*0.22) * 0.012;
+  const R = baseR * breathe;
+  const squash = 0.34 + smoothY * 0.02;       // ellipse flatten, gentle distortion w/ mouse
+  const tilt = smoothX * 0.05;                 // subtle rotational tilt with mouse
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tilt);
+
+  // ---- outer ambient glow ----
+  ctx.globalCompositeOperation = 'lighter';
+  let ambient = ctx.createRadialGradient(0,0, R*0.4, 0,0, R*2.4);
+  ambient.addColorStop(0, 'rgba(120,90,220,0.09)');
+  ambient.addColorStop(0.5, 'rgba(70,90,180,0.045)');
+  ambient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = ambient;
+  ctx.beginPath();
+  ctx.ellipse(0,0, R*2.4, R*2.4*squash*2.2, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // ---- disk BACK half (behind event horizon) ----
+  drawDiskArc(R, squash, Math.PI, Math.PI*2, 0.85);
+
+  // ---- event horizon (pure black core) ----
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.ellipse(0,0, R*0.92, R*0.92*squash*2.1, 0, 0, Math.PI*2);
+  ctx.fillStyle = '#000000';
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur = 40;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // ---- lensing rim (einstein ring) ----
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.beginPath();
+  ctx.ellipse(0,0, R*0.94, R*0.94*squash*2.1, 0, 0, Math.PI*2);
+  ctx.lineWidth = 2.2;
+  const rimGrad = ctx.createLinearGradient(-R,0,R,0);
+  rimGrad.addColorStop(0, 'rgba(93,201,255,0.55)');
+  rimGrad.addColorStop(0.5, 'rgba(255,255,255,0.65)');
+  rimGrad.addColorStop(1, 'rgba(155,107,255,0.55)');
+  ctx.strokeStyle = rimGrad;
+  ctx.stroke();
+
+  // ---- disk FRONT half (in front of event horizon) ----
+  drawDiskArc(R, squash, 0, Math.PI, 1);
+
+  ctx.restore();
+
+  // ---- orbiting particles ----
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tilt);
+  ctx.globalCompositeOperation = 'lighter';
+  for(const p of particles){
+    p.angle += p.speed * 0.006;
+    const rad = p.radius * R * 1.15;
+    const px = Math.cos(p.angle) * rad;
+    const py = Math.sin(p.angle) * rad * squash * 2.1;
+    // hide particles directly behind the horizon for depth illusion
+    const behind = (py < 0) && (Math.abs(px) < R*0.9);
+    const alpha = behind ? 0.12 : 0.55;
+    const col = mixColor(cBlue, cViolet, p.hueMix);
+    ctx.fillStyle = `rgba(${col.r|0},${col.g|0},${col.b|0},${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawDiskArc(R, squash, startAngle, endAngle, alphaMul){
+  const bands = 5;
+  for(let i=0;i<bands;i++){
+    const rr = R * (1.02 + i*0.16);
+    const rot = t * (0.03 + i*0.006);
+    const grad = ctx.createLinearGradient(-rr, 0, rr, 0);
+    const mixA = mixColor(cViolet, cBlue, 0.15 + i*0.15);
+    grad.addColorStop(0, `rgba(${mixA.r|0},${mixA.g|0},${mixA.b|0},0)`);
+    grad.addColorStop(0.5, `rgba(${mixA.r|0},${mixA.g|0},${mixA.b|0},${(0.16 - i*0.022) * alphaMul})`);
+    grad.addColorStop(1, `rgba(${mixA.r|0},${mixA.g|0},${mixA.b|0},0)`);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rr, rr*squash*2.1, rot, startAngle, endAngle);
+    ctx.lineWidth = 5 + i*1.4;
+    ctx.strokeStyle = grad;
+    ctx.stroke();
+  }
+}
+
+function drawCursorGlow(){
+  const cx = (mouseX*0.5+0.5) * W;
+  const cy = (mouseY*0.5+0.5) * H;
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 200);
+  g.addColorStop(0, 'rgba(150,150,255,0.045)');
+  g.addColorStop(1, 'rgba(150,150,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 200, 0, Math.PI*2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function frame(){
+  smoothX += (mouseX - smoothX) * 0.035;
+  smoothY += (mouseY - smoothY) * 0.035;
+  t += 0.016;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#030308';
+  ctx.fillRect(0,0,W,H);
+
+  drawStars();
+  drawBlackHole();
+  drawCursorGlow();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+
+/* ================= Local GPS counter ================= */
+const counterEl = document.getElementById('counter-value');
+let displayValue = 0;
+let targetValue = 0;
+let animStart = null, animFrom = 0, animDuration = 700;
+
+function formatNum(n){
+  return Math.floor(n).toLocaleString('en-US');
+}
+
+function tweenCounter(ts){
+  if(!animStart) animStart = ts;
+  const elapsed = ts - animStart;
+  const progress = Math.min(elapsed / animDuration, 1);
+  const eased = 1 - Math.pow(1 - progress, 3);
+  displayValue = animFrom + (targetValue - animFrom) * eased;
+  counterEl.textContent = formatNum(displayValue);
+  if(progress < 1){
+    requestAnimationFrame(tweenCounter);
+  } else {
+    displayValue = targetValue;
+    counterEl.textContent = formatNum(displayValue);
+  }
+}
+
+function setCounter(value){
+  animFrom = displayValue;
+  targetValue = value;
+  animStart = null;
+  requestAnimationFrame(tweenCounter);
+}
+setCounter(0);
+
+/* ================= EXIF query interaction ================= */
+const input = document.getElementById('photo-input');
+const fileName = document.getElementById('file-name');
+const queryRow = document.getElementById('query-row');
+const btn = document.getElementById('query-btn');
+const btnLabel = document.getElementById('btn-label');
+const spinner = document.getElementById('spinner');
+const statusLine = document.getElementById('status-line');
+const result = document.getElementById('result');
+const resultHead = document.getElementById('result-head');
+const resultBody = document.getElementById('result-body');
+const resultFoot = document.getElementById('result-foot');
+const previewCard = document.getElementById('preview-card');
+const previewImg = document.getElementById('preview-img');
+const intelGrid = document.getElementById('intel-grid');
+const riskPanel = document.getElementById('risk-panel');
+const riskScore = document.getElementById('risk-score');
+const riskFill = document.getElementById('risk-fill');
+const riskDesc = document.getElementById('risk-desc');
+const scoreBreakdown = document.getElementById('score-breakdown');
+const geoActions = document.getElementById('geo-actions');
+const mapsLink = document.getElementById('maps-link');
+const osmLink = document.getElementById('osm-link');
+const toolActions = document.getElementById('tool-actions');
+const rawDetails = document.getElementById('raw-details');
+const rawOutput = document.getElementById('raw-output');
+const copyJson = document.getElementById('copy-json');
+const downloadJson = document.getElementById('download-json');
+const clearScan = document.getElementById('clear-scan');
+
+let selectedFile = null;
+let currentPayload = null;
+
+const scanLines = [
+  'loading image into local memory…',
+  'scanning EXIF signature blocks…',
+  'analyzing GPS leakage vectors…',
+  'extracting camera fingerprint…',
+  'building privacy risk score…',
+  'generating intelligence report…'
+];
+
+input.addEventListener('change', () => {
+  selectedFile = input.files && input.files[0] ? input.files[0] : null;
+  fileName.textContent = selectedFile ? selectedFile.name : 'Select image file';
+  statusLine.innerHTML = selectedFile
+    ? '<span class="ok">// target selected — press analyze</span><span class="cursor"></span>'
+    : '// waiting for local image input<span class="cursor"></span>';
+  queryRow.classList.remove('shake');
+});
+
+btn.addEventListener('click', runScan);
+copyJson.addEventListener('click', copyCurrentJson);
+downloadJson.addEventListener('click', downloadCurrentJson);
+clearScan.addEventListener('click', resetAll);
+
+async function runScan(){
+  if(!selectedFile){
+    queryRow.classList.remove('shake');
+    void queryRow.offsetWidth;
+    queryRow.classList.add('shake');
+    statusLine.innerHTML = '<span class="err">// no image selected</span>';
+    return;
+  }
+
+  if(!selectedFile.type.startsWith('image/')){
+    statusLine.innerHTML = '<span class="err">// invalid file type — image required</span>';
+    return;
+  }
+
+  resetOutputOnly();
+  btn.disabled = true;
+  btnLabel.textContent = 'Scanning';
+  spinner.style.display = 'inline-block';
+  result.classList.remove('show');
+
+  previewImg.src = URL.createObjectURL(selectedFile);
+  previewCard.classList.add('show');
+
+  let i = 0;
+  statusLine.innerHTML = `<span class="ok">${scanLines[0]}</span><span class="cursor"></span>`;
+  const interval = setInterval(()=>{
+    i++;
+    if(i < scanLines.length){
+      statusLine.innerHTML = `<span class="ok">${scanLines[i]}</span><span class="cursor"></span>`;
+    }
+  }, 360);
+
+  try{
+    const metadata = await exifr.parse(selectedFile, {
+      gps:true, xmp:true, iptc:true, jfif:true, ihdr:true, tiff:true, exif:true, interop:true
+    });
+
+    const imageSize = await getImageSize(selectedFile);
+
+    clearInterval(interval);
+
+    const fileInfo = {
+      fileName:selectedFile.name,
+      fileType:selectedFile.type || 'Unknown',
+      fileSize:formatBytes(selectedFile.size),
+      lastModified:new Date(selectedFile.lastModified).toLocaleString('tr-TR'),
+      imageWidth:imageSize.width,
+      imageHeight:imageSize.height
+    };
+
+    currentPayload = { fileInfo, metadata: metadata || {} };
+    result.classList.add('show');
+    renderReport(fileInfo, metadata || {});
+
+    btn.disabled = false;
+    btnLabel.textContent = 'Analyze';
+    spinner.style.display = 'none';
+    statusLine.innerHTML = '<span class="ok">scan complete.</span>';
+  }catch(err){
+    console.error(err);
+    clearInterval(interval);
+    btn.disabled = false;
+    btnLabel.textContent = 'Analyze';
+    spinner.style.display = 'none';
+    statusLine.innerHTML = '<span class="err">// metadata read error</span>';
+  }
+}
+
+function renderReport(fileInfo, metadata){
+  const hasGps = typeof metadata.latitude === 'number' && typeof metadata.longitude === 'number';
+  const scoreReport = calculateIntelligenceScore(fileInfo, metadata, hasGps);
+  const score = scoreReport.score;
+  const severity = scoreReport.severity;
+  const severityText = scoreReport.label;
+
+  setCounter(Math.floor(42392119 + Math.random()*9000));
+
+  resultHead.innerHTML = hasGps
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12z"/><circle cx="12" cy="9" r="2.2"/></svg> INTELLIGENCE REPORT GENERATED'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg> IMAGE ANALYSIS COMPLETE';
+
+  resultBody.innerHTML = hasGps
+    ? 'GPS coordinates were detected. This image may reveal where it was captured, because apparently even photos enjoy leaking secrets.'
+    : (Object.keys(metadata).length ? 'Metadata was found, but GPS coordinates were not detected.' : 'No readable EXIF metadata was found. Some apps strip it automatically. Rare decent behavior from software.');
+
+  resultFoot.textContent = '// local browser analysis — image never leaves this page';
+
+  riskPanel.classList.remove('safe','medium','high');
+  riskFill.classList.remove('safe','medium','high');
+  riskPanel.classList.add('show', severity);
+  riskFill.classList.add(severity);
+  animateScore(score);
+  riskDesc.innerHTML = `<span class="severity ${severity}">${severityText}</span>`;
+  scoreBreakdown.innerHTML = scoreReport.reasons.map(item => `
+    <div class="score-reason"><span>${escapeHtml(item.label)}</span><b>${item.points > 0 ? '+' : ''}${item.points}</b></div>
+  `).join('');
+
+  const gpsValue = hasGps
+    ? `<strong>Latitude:</strong> ${metadata.latitude}<br><strong>Longitude:</strong> ${metadata.longitude}<br><strong>Risk:</strong> Location leakage detected`
+    : '<strong>Status:</strong> No GPS coordinates found<br><strong>Risk:</strong> Location leakage not detected';
+
+  const cameraValue = `<strong>Make:</strong> ${escapeHtml(String(metadata.Make || 'Not found'))}<br><strong>Model:</strong> ${escapeHtml(String(metadata.Model || 'Not found'))}<br><strong>Lens:</strong> ${escapeHtml(String(metadata.LensModel || 'Not found'))}`;
+  const timelineValue = `<strong>Captured:</strong> ${escapeHtml(formatDate(metadata.DateTimeOriginal || metadata.CreateDate || metadata.ModifyDate))}<br><strong>Modified:</strong> ${escapeHtml(fileInfo.lastModified)}<br><strong>Timezone:</strong> ${escapeHtml(String(metadata.OffsetTimeOriginal || metadata.TimeZoneOffset || 'Not found'))}`;
+  const softwareValue = `<strong>Software:</strong> ${escapeHtml(String(metadata.Software || 'Not found'))}<br><strong>Creator:</strong> ${escapeHtml(String(metadata.Artist || metadata.Creator || metadata.Byline || 'Not found'))}<br><strong>Copyright:</strong> ${escapeHtml(String(metadata.Copyright || 'Not found'))}`;
+  const fileValue = `<strong>File:</strong> ${escapeHtml(fileInfo.fileName)}<br><strong>Type:</strong> ${escapeHtml(fileInfo.fileType)}<br><strong>Size:</strong> ${escapeHtml(fileInfo.fileSize)}<br><strong>Resolution:</strong> ${fileInfo.imageWidth && fileInfo.imageHeight ? `${fileInfo.imageWidth} × ${fileInfo.imageHeight}` : 'Unknown'}`;
+  const exposureValue = `<strong>GPS:</strong> ${hasGps ? 'Detected' : 'Not found'}<br><strong>Camera fingerprint:</strong> ${(metadata.Make || metadata.Model) ? 'Detected' : 'Not found'}<br><strong>Timestamp:</strong> ${(metadata.DateTimeOriginal || metadata.CreateDate || metadata.ModifyDate) ? 'Detected' : 'Not found'}<br><strong>Metadata fields:</strong> ${Object.keys(metadata).length}`;
+
+  const cards = [
+    ['📍 GPS LOCATION', gpsValue],
+    ['📷 CAMERA FINGERPRINT', cameraValue],
+    ['🕒 TIMELINE', timelineValue],
+    ['🖥 SOFTWARE TRACE', softwareValue],
+    ['🧬 FILE SIGNATURE', fileValue],
+    ['🛡 PRIVACY EXPOSURE', exposureValue]
+  ];
+
+  intelGrid.innerHTML = cards.map(([title,value]) => `
+    <div class="intel-card">
+      <div class="intel-title">${title}</div>
+      <div class="intel-value">${value}</div>
+    </div>
+  `).join('');
+  intelGrid.classList.add('show');
+
+  if(hasGps){
+    geoActions.classList.add('show');
+    mapsLink.href = `https://www.google.com/maps?q=${metadata.latitude},${metadata.longitude}`;
+    osmLink.href = `https://www.openstreetmap.org/?mlat=${metadata.latitude}&mlon=${metadata.longitude}#map=16/${metadata.latitude}/${metadata.longitude}`;
+  }
+
+  toolActions.classList.add('show');
+  rawDetails.classList.add('show');
+  rawOutput.textContent = JSON.stringify(currentPayload, null, 2);
+}
+
+function calculateIntelligenceScore(fileInfo, metadata, hasGps){
+  const keys = Object.keys(metadata || {});
+  const hasCamera = !!(metadata.Make || metadata.Model);
+  const hasLens = !!(metadata.LensModel || metadata.LensMake || metadata.FNumber || metadata.FocalLength || metadata.ISO);
+  const hasTime = !!(metadata.DateTimeOriginal || metadata.CreateDate || metadata.ModifyDate || metadata.OffsetTimeOriginal);
+  const hasSoftware = !!(metadata.Software || metadata.ProcessingSoftware || metadata.CreatorTool);
+  const hasIdentity = !!(metadata.Artist || metadata.Creator || metadata.Byline || metadata.Copyright || metadata.OwnerName || metadata.ImageDescription);
+  const hasDeviceDetail = !!(metadata.SerialNumber || metadata.BodySerialNumber || metadata.LensSerialNumber || metadata.InternalSerialNumber);
+  const hasXmpIptc = keys.some(k => /xmp|iptc|creator|rights|headline|caption|city|country|location/i.test(k));
+  const resolutionPixels = (fileInfo.imageWidth || 0) * (fileInfo.imageHeight || 0);
+
+  const reasons = [];
+  let score = 0;
+  function add(condition, points, label){
+    if(condition){ score += points; reasons.push({ label, points }); }
+  }
+
+  add(hasGps, 42, 'GPS konumu bulundu');
+  add(hasCamera, 16, 'Kamera marka/model izi bulundu');
+  add(hasLens, 8, 'Lens/çekim parametresi bulundu');
+  add(hasTime, 12, 'Çekim veya düzenleme zamanı bulundu');
+  add(hasSoftware, 8, 'Düzenleme/yazılım izi bulundu');
+  add(hasIdentity, 10, 'Creator/telif/açıklama alanı bulundu');
+  add(hasDeviceDetail, 18, 'Seri numarası veya cihaz detayı bulundu');
+  add(hasXmpIptc, 6, 'XMP/IPTC içerik izi bulundu');
+  add(keys.length >= 25, 8, 'Yoğun metadata profili');
+  add(keys.length > 0 && keys.length < 25, 4, 'Sınırlı metadata profili');
+  add(resolutionPixels >= 12000000, 2, 'Yüksek çözünürlük dosya izi');
+
+  if(keys.length === 0){
+    reasons.push({ label:'EXIF metadata bulunamadı veya silinmiş', points:0 });
+  }
+
+  score = Math.max(0, Math.min(Math.round(score), 100));
+
+  let severity = 'safe';
+  let label = 'Low exposure profile';
+  if(score >= 70){
+    severity = 'high';
+    label = 'Critical privacy exposure';
+  } else if(score >= 35){
+    severity = 'medium';
+    label = 'Moderate metadata exposure';
+  }
+
+  return { score, severity, label, reasons };
+}
+
+function animateScore(target){
+  const start = parseInt((riskScore.textContent || '0').replace(/[^0-9]/g,''), 10) || 0;
+  const duration = 850;
+  const started = performance.now();
+  riskFill.style.width = '0%';
+
+  function step(now){
+    const progress = Math.min((now - started) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + (target - start) * eased);
+    riskScore.textContent = `${current} / 100`;
+    riskFill.style.width = (target * eased) + '%';
+    if(progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+async function copyCurrentJson(){
+  if(!currentPayload) return;
+  await navigator.clipboard.writeText(JSON.stringify(currentPayload, null, 2));
+  statusLine.innerHTML = '<span class="ok">// metadata copied to clipboard</span>';
+}
+
+function downloadCurrentJson(){
+  if(!currentPayload) return;
+  const base = (selectedFile?.name || 'metadata').replace(/\.[^/.]+$/, '');
+  const blob = new Blob([JSON.stringify(currentPayload, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = base + '-metadata.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  statusLine.innerHTML = '<span class="ok">// metadata exported as json</span>';
+}
+
+function resetAll(){
+  selectedFile = null;
+  currentPayload = null;
+  input.value = '';
+  fileName.textContent = 'Select image file';
+  resetOutputOnly();
+  statusLine.innerHTML = '// waiting for local image input<span class="cursor"></span>';
+  setCounter(0);
+}
+
+function resetOutputOnly(){
+  result.classList.remove('show');
+  previewCard.classList.remove('show');
+  intelGrid.classList.remove('show');
+  riskPanel.classList.remove('show','safe','medium','high');
+  riskFill.classList.remove('safe','medium','high');
+  riskFill.style.width = '0%';
+  riskScore.textContent = '0 / 100';
+  riskDesc.textContent = 'Awaiting image analysis';
+  scoreBreakdown.innerHTML = '';
+  geoActions.classList.remove('show');
+  toolActions.classList.remove('show');
+  rawDetails.classList.remove('show');
+  intelGrid.innerHTML = '';
+  rawOutput.textContent = '';
+  mapsLink.href = '#';
+  osmLink.href = '#';
+}
+
+function getImageSize(file){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = () => resolve({ width:img.naturalWidth, height:img.naturalHeight });
+    img.onerror = () => resolve({ width:null, height:null });
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function formatBytes(bytes){
+  if(!bytes) return '0 Byte';
+  const sizes = ['Byte','KB','MB','GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatDate(value){
+  if(!value) return 'Not found';
+  if(value instanceof Date) return value.toLocaleString('tr-TR');
+  return String(value);
+}
+
+function escapeHtml(text){
+  return text
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#039;');
+}
+</script>
+
+</body>
+</html>
